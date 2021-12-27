@@ -16,13 +16,31 @@ public class WordGame : MonoBehaviour
 {
     static public WordGame S;
 
+    [Header("Set in Inspector")]
+    public GameObject PrefabLetter;
+    public Rect WordArea = new Rect(-24, 19, 48, 28);
+    public float LetterSize = 1.5f;
+    public bool ShowAllWyrds = true;
+    public float BigLetterSize = 4f;
+    public Color BigColorDim = new Color(0.8f, 0.8f, 0.8f);
+    public Color BigColorSelected = new Color(1f, 0.9f, 0.7f);
+    public Vector3 BigLetterCenter = new Vector3(0, -16, 0);
+
     [Header("Set Dynamically")]
     public GameMode Mode = GameMode.PreGame;
     public WordLevel CurrLevel;
+    public List<Wyrd> Wyrds;
+    public List<Letter> BigLetters;
+    public List<Letter> BigLettersActive;
+
+    private Transform _letterAnchor;
+    private Transform _bigLetterAnchor;
 
     private void Awake()
     {
         S = this;
+        _letterAnchor = new GameObject("LetterAnchor").transform;
+        _bigLetterAnchor = new GameObject("BigLetterAnchor").transform;
     }
 
     private void Start()
@@ -104,5 +122,145 @@ public class WordGame : MonoBehaviour
     public void SubWordSearchComplete()
     {
         Mode = GameMode.LevelPrep;
+        Layout();   // Вызвать Layout() один раз после выполнения WordSearch
+    }
+
+    private void Layout()
+    {
+        // Поместить на экран плитки с буквами каждого возможного слова текущего уровня
+        Wyrds = new List<Wyrd>();
+
+        // Объявить локальные переменные, которые будут использоваться методом
+        GameObject gameObject;
+        Letter letter;
+        string word;
+        Vector3 position;
+        float left = 0;
+        float columnWidth = 3;
+        char c;
+        Color color;
+        Wyrd wyrd;
+
+        // Определить, сколько рядов плиток уместится на экране
+        int numRows = Mathf.RoundToInt(WordArea.height / LetterSize);
+
+        // Создать экземпляр Wyrd для каждого слова в Level.SubWords
+        for (int i = 0; i < CurrLevel.SubWords.Count; i++)
+        {
+            wyrd = new Wyrd();
+            word = CurrLevel.SubWords[i];
+
+            // Если слово длинее, чем columnWidth, развернуть его
+            columnWidth = Mathf.Max(columnWidth, word.Length);
+
+            // Создать экземпляр PrefabLetter Для каждой буквы в слове
+            for (int j = 0; j < word.Length; j++)
+            {
+                c = word[j];                                       // Получить j-й символ слова
+                gameObject = Instantiate<GameObject>(PrefabLetter);
+                gameObject.transform.SetParent(_letterAnchor);
+                letter = gameObject.GetComponent<Letter>();
+                letter.CharProp = c;                               // Назначить букву плитке Letter
+
+                // Установить координаты плитки Letter
+                position = new Vector3(WordArea.x + left + j * LetterSize, WordArea.y, 0);
+
+                // Оператор % помогает выстроить плитки по вертикали
+                position.y -= (i % numRows) * LetterSize;
+
+                letter.PositionProp = position; // ...
+
+                gameObject.transform.localScale = Vector3.one * LetterSize;
+                wyrd.Add(letter);
+            }
+
+            if (ShowAllWyrds)
+            {
+                wyrd.VisibleProp = true;
+            }
+
+            Wyrds.Add(wyrd);
+
+            // Если достинут последний ряд в столбце, начать новый столбец
+            if (i % numRows == numRows - 1)
+            {
+                left += (columnWidth + 0.5f) * LetterSize;
+            }
+        }
+
+        // Поместить на экран большие плитки с буквами
+        // Инициализировать список больших букв
+        BigLetters = new List<Letter>();
+        BigLettersActive = new List<Letter>();
+
+        // Создать большую плитку для каждой буквы в целевом слове
+        for (int i = 0; i < CurrLevel.Word.Length; i++)
+        {
+            // Напоминает процедуру создания маленьких плиток
+            c = CurrLevel.Word[i];
+            gameObject = Instantiate<GameObject>(PrefabLetter);
+            gameObject.transform.SetParent(_bigLetterAnchor);
+            letter = gameObject.GetComponent<Letter>();
+            letter.CharProp = c;
+            gameObject.transform.localScale = Vector3.one * BigLetterSize;
+
+            // Первоначально поместить большие плитки ниже края экрана
+            position = new Vector3(0, -100, 0);
+            letter.PositionProp = position; // ...
+
+            color = BigColorDim;
+            letter.ColorProp = color;
+            letter.VisibleProp = true; // Всегда true для больших плиток
+            letter.Big = true;
+            BigLetters.Add(letter);
+        }
+
+        // Перемешать плитки
+        BigLetters = ShuffleLetters(BigLetters);
+
+        // Вывести на экран
+        ArrangeBigLetters();
+
+        // Установить режим Mode -- "в игре"
+        Mode = GameMode.InLevel;
+    }
+
+    // Этот метод перемешивает элементы в списке List<Letter> и возвращает результат
+    private List<Letter> ShuffleLetters(List<Letter> letters)
+    {
+        List<Letter> newLetters = new List<Letter>();
+        int ndx;
+        while (letters.Count > 0)
+        {
+            ndx = Random.Range(0, letters.Count);
+            newLetters.Add(letters[ndx]);
+            letters.RemoveAt(ndx);
+        }
+
+        return newLetters;
+    }
+
+    // Этот метод выводит большие плитки на экран
+    private void ArrangeBigLetters()
+    {
+        // Найди середину для вывода ряда больших плиток с центрированием по горизонтали
+        float halfWidth = ((float)BigLetters.Count) / 2f - 0.5f;
+        Vector3 position;
+        for (int i = 0; i < BigLetters.Count; i++)
+        {
+            position = BigLetterCenter;
+            position.x += (i - halfWidth) * BigLetterSize;
+            BigLetters[i].PositionProp = position;
+        }
+
+        // BigLettersActive
+        halfWidth = ((float)BigLettersActive.Count) / 2f - 0.5f;
+        for (int i = 0; i < BigLettersActive.Count; i++)
+        {
+            position = BigLetterCenter;
+            position.x += (i - halfWidth) * BigLetterSize;
+            position.y += BigLetterSize * 1.25f;
+            BigLettersActive[i].PositionProp = position;
+        }
     }
 }
