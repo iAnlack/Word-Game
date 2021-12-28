@@ -25,6 +25,7 @@ public class WordGame : MonoBehaviour
     public Color BigColorDim = new Color(0.8f, 0.8f, 0.8f);
     public Color BigColorSelected = new Color(1f, 0.9f, 0.7f);
     public Vector3 BigLetterCenter = new Vector3(0, -16, 0);
+    public Color[] WyrdPalette;
 
     [Header("Set Dynamically")]
     public GameMode Mode = GameMode.PreGame;
@@ -339,7 +340,12 @@ public class WordGame : MonoBehaviour
                 // Оператор % помогает выстроить плитки по вертикали
                 position.y -= (i % numRows) * LetterSize;
 
-                letter.PositionProp = position; // ...
+                // Переместить плтику letter немедленно за верхний край экрана
+                letter.PosImmediate = position + Vector3.up * (20 + i % numRows);
+                // Затем начать её перемещение в новую позицию position
+                letter.PositionProp = position; // вокруг образовался новый код
+                // Увеличить letter.TimeStart для перемещения слов в разные времена
+                letter.TimeStart = Time.time + i * 0.05f;
 
                 gameObject.transform.localScale = Vector3.one * LetterSize;
                 wyrd.Add(letter);
@@ -350,6 +356,8 @@ public class WordGame : MonoBehaviour
                 wyrd.VisibleProp = true;
             }
 
+            // Определить цвет слова исходя из его длины
+            wyrd.ColorProp = WyrdPalette[word.Length - WordList.WORD_LENGTH_MIN];
             Wyrds.Add(wyrd);
 
             // Если достинут последний ряд в столбце, начать новый столбец
@@ -377,7 +385,12 @@ public class WordGame : MonoBehaviour
 
             // Первоначально поместить большие плитки ниже края экрана
             position = new Vector3(0, -100, 0);
-            letter.PositionProp = position; // ...
+
+            letter.PosImmediate = position;
+            letter.PositionProp = position; // вокруг образовался новый код
+            // Увеличить letter.TimeStart, чтобы большие плитки с буквами появились последними
+            letter.TimeStart = Time.time + CurrLevel.SubWords.Count * 0.05f;
+            letter.EasingCuve = Easing.Sin+"-0.18";   // Bouncy easing
 
             color = BigColorDim;
             letter.ColorProp = color;
